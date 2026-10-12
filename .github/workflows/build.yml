@@ -1,0 +1,356 @@
+
+name: Build KIM ADDONS APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Create Flutter project
+        run: |
+          flutter create --platforms=android --org com.kimaddons --project-name kim_addons app
+
+      - name: Configure app
+        run: |
+          cat > app/lib/main.dart <<'DART'
+          import 'package:flutter/material.dart';
+
+          void main() => runApp(const KimAddons());
+
+          const blue = Color(0xFF35BFFF);
+          const bg = Color(0xFF080B12);
+
+          class KimAddons extends StatelessWidget {
+            const KimAddons({super.key});
+
+            @override
+            Widget build(BuildContext context) {
+              return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                title: 'KIM ADDONS',
+                theme: ThemeData(
+                  brightness: Brightness.dark,
+                  scaffoldBackgroundColor: bg,
+                  colorScheme: ColorScheme.fromSeed(
+                    seedColor: blue,
+                    brightness: Brightness.dark,
+                  ),
+                  useMaterial3: true,
+                ),
+                home: const Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: LibraryPage(),
+                ),
+              );
+            }
+          }
+
+          class LibraryPage extends StatefulWidget {
+            const LibraryPage({super.key});
+
+            @override
+            State<LibraryPage> createState() => _LibraryPageState();
+          }
+
+          class _LibraryPageState extends State<LibraryPage> {
+            final search = TextEditingController();
+            int category = 0;
+            int tab = 0;
+            final favorites = <String>{};
+
+            final categories = [
+              'الكل', 'أسلحة', 'وحوش', 'خرائط', 'مركبات', 'ديكور'
+            ];
+
+            final mods = [
+              ['سيف الطاقة', 'أسلحة', '⚔️'],
+              ['العملاق الحجري', 'وحوش', '👹'],
+              ['قلعة المغامرات', 'خرائط', '🏰'],
+              ['دبابة قتالية', 'مركبات', '🚙'],
+              ['أثاث عصري', 'ديكور', '🪑'],
+              ['عالم البقاء', 'خرائط', '🌍'],
+            ];
+
+            @override
+            Widget build(BuildContext context) {
+              final filtered = mods.where((m) {
+                final matchesSearch = m[0].contains(search.text.trim());
+                final matchesCategory =
+                    category == 0 || m[1] == categories[category];
+                final matchesTab = tab != 1 || favorites.contains(m[0]);
+                return matchesSearch && matchesCategory && matchesTab;
+              }).toList();
+
+              return Scaffold(
+                appBar: AppBar(
+                  backgroundColor: bg,
+                  title: const Row(
+                    children: [
+                      Icon(Icons.hexagon, color: blue, size: 30),
+                      SizedBox(width: 9),
+                      Text('KIM ADDONS',
+                        style: TextStyle(fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                  actions: [
+                    IconButton(
+                      onPressed: () => setState(() => tab = 2),
+                      icon: const Icon(Icons.person_outline),
+                    ),
+                  ],
+                ),
+                body: tab == 2
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'سيتم ربط الحسابات الحقيقية في المرحلة التالية.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(22),
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF123553),
+                                  Color(0xFF101522),
+                                  bg,
+                                ],
+                              ),
+                              border: Border.all(
+                                color: blue.withValues(alpha: 0.35),
+                              ),
+                            ),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('KIM ADDONS LIBRARY',
+                                  style: TextStyle(color: blue)),
+                                SizedBox(height: 12),
+                                Text('اكتشف عالماً جديداً',
+                                  style: TextStyle(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                  )),
+                                SizedBox(height: 8),
+                                Text('مودات وأسلحة وخرائط ومغامرات '
+                                    'في مكتبة واحدة.'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          TextField(
+                            controller: search,
+                            onChanged: (_) => setState(() {}),
+                            decoration: InputDecoration(
+                              hintText: 'ابحث عن مود أو خريطة...',
+                              prefixIcon: const Icon(Icons.search),
+                              filled: true,
+                              fillColor: const Color(0xFF111722),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+                          const Text('التصنيفات',
+                            style: TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.bold,
+                            )),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 43,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: categories.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 8),
+                              itemBuilder: (context, i) => ChoiceChip(
+                                label: Text(categories[i]),
+                                selected: category == i,
+                                onSelected: (_) =>
+                                    setState(() => category = i),
+                                selectedColor: blue,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+                          Text(
+                            tab == 1 ? 'المفضلة' : 'مكتبة الإضافات',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            )),
+                          const SizedBox(height: 12),
+                          if (filtered.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(28),
+                              child: Center(
+                                child: Text('لا توجد نتائج مطابقة'),
+                              ),
+                            ),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: filtered.length,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 12,
+                              childAspectRatio: 0.83,
+                            ),
+                            itemBuilder: (context, i) {
+                              final m = filtered[i];
+                              final saved = favorites.contains(m[0]);
+
+                              return InkWell(
+                                borderRadius: BorderRadius.circular(18),
+                                onTap: () => showDialog<void>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: Text(m[0]),
+                                    content: Text(
+                                      'التصنيف: ${m[1]}\n\n'
+                                      'هذه بطاقة أولية وليست ملف مود للتنزيل. '
+                                      'سنربط ملفات الإضافات الحقيقية لاحقاً.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context),
+                                        child: const Text('إغلاق'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF111722),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: const Color(0xFF26394D),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Center(
+                                          child: Text(m[2],
+                                            style: const TextStyle(
+                                              fontSize: 53)),
+                                        ),
+                                      ),
+                                      Text(m[0],
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 5),
+                                      Row(
+                                        children: [
+                                          const Expanded(
+                                            child: Text('BEDROCK',
+                                              style: TextStyle(
+                                                color: blue,
+                                                fontSize: 10)),
+                                          ),
+                                          IconButton(
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            onPressed: () => setState(() {
+                                              if (saved) {
+                                                favorites.remove(m[0]);
+                                              } else {
+                                                favorites.add(m[0]);
+                                              }
+                                            }),
+                                            icon: Icon(
+                                              saved ? Icons.favorite
+                                                  : Icons.favorite_border,
+                                              color: saved ? blue
+                                                  : Colors.white70,
+                                              size: 20,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                bottomNavigationBar: NavigationBar(
+                  backgroundColor: const Color(0xFF10141D),
+                  selectedIndex: tab,
+                  onDestinationSelected: (i) => setState(() => tab = i),
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.grid_view), label: 'المكتبة'),
+                    NavigationDestination(
+                      icon: Icon(Icons.favorite_border), label: 'المفضلة'),
+                    NavigationDestination(
+                      icon: Icon(Icons.person_outline), label: 'حسابي'),
+                  ],
+                ),
+              );
+            }
+
+            @override
+            void dispose() {
+              search.dispose();
+              super.dispose();
+            }
+          }
+          DART
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+        working-directory: app
+
+      - name: Build Android APK
+        run: flutter build apk --release
+        working-directory: app
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KIM-ADDONS-APK
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
